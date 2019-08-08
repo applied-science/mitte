@@ -69,21 +69,23 @@
 
 ;; (server/start-server
 ;;   :handler (server/default-handler #'pback/wrap-cljs-repl)
-;;   ; ...additional `start-server` options as desired
+;;   ; ...additional `start-server` get_options as desired
 ;;   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The HTTP server we use to communicate with MarkLogic's internal context
 
 ;; to insert a form for remote evaluation in testing
-;; (.put evaluation-queue "1 + 1")
+(comment
+  (.put evaluation-queue "1 + 5"))
 
 ;; to manually read a form from the result queue
 ;; NB this is a blocking operation!
 ;; (.take result-queue)
 
 (defroutes mitte-server
-  (GET "/request-form" [] (.take evaluation-queue)) ; next item in the queue, blocks if queue empty!
+  (GET "/request-form" []
+       (.take evaluation-queue))      ; next item in the queue, blocks if queue empty!
   (PUT "/return-result" req
        (let [res-str (slurp (clojure.java.io/reader (:body req) :encoding "UTF-8"))]
          (println (str "computed: " res-str))
