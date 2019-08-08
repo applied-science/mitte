@@ -1,3 +1,5 @@
+// can put this file in the root directory of a MarkLogic app server and run from a browser
+
 const {httpGet, httpPut} = xdmp
 
 host = 'localhost'
