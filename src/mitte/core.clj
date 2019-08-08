@@ -77,7 +77,7 @@
 
 ;; to insert a form for remote evaluation in testing
 (comment
-  (.put evaluation-queue "1 + 5"))
+  (.put evaluation-queue (str "1 + " (rand-int 100))))
 
 ;; to manually read a form from the result queue
 ;; NB this is a blocking operation!
