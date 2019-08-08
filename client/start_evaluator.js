@@ -2,13 +2,15 @@
 
 // by default we assume you have created user: 'local-admin' with password: 'admin'
 
-argv = require('minimist')(process.argv);
+argv = require('minimist')(process.argv)
 
 const user = argv["user"] || "local-admin"
 const password = argv["password"] || "admin"
 const port = argv["port"] || '8000'
+const repl_port = argv["repl-port"] || 9999
 const host = argv["host"] || 'localhost'
 const database = argv["database"] || 'Documents'
+const session = argv["session"]
 
 const opts = {
     authType: 'DIGEST',
@@ -35,7 +37,7 @@ const install = () => {
 
 const start = async () => {
     const {path} = await install()
-    db.invoke({path}).result()
+    return db.invoke({path, variables: {options: {session, host, repl_port}}}).result()
 }
 
 start()

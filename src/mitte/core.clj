@@ -3,12 +3,14 @@
             [org.httpkit.server :refer [run-server]]
             [nrepl.server :as server]
             [cider.piggieback :as pback]
-            [cljs.repl :as repl]))
+            [cljs.repl :as repl]
+            [clojure.java.shell :refer [sh]]))
 
 ;; This pair of queues are used to buffer forms going out to, and
 ;; results coming in from, the JS runtime in Marklogic.
 (defonce evaluation-queue (java.util.concurrent.LinkedBlockingQueue.))
 (defonce result-queue (java.util.concurrent.LinkedBlockingQueue.))
+(defonce session (atom nil))
 
 ;; this interface can be passed to piggieback to wrap it in an nREPL session
 #_(defrecord MarkLogicEnv [engine debug]
@@ -84,8 +86,10 @@
 ;; (.take result-queue)
 
 (defroutes mitte-server
-  (GET "/request-form" []
-       (.take evaluation-queue))      ; next item in the queue, blocks if queue empty!
+  (GET "/request-form" req
+       (if (= (get-in req [:headers "x-repl-session"]) @session)
+         (.take evaluation-queue)                           ; next item in the queue, blocks if queue empty!
+         {:status 500 :body "Invalid session"}))
   (PUT "/return-result" req
        (let [res-str (slurp (clojure.java.io/reader (:body req) :encoding "UTF-8"))]
          (println (str "computed: " res-str))
@@ -101,7 +105,11 @@
   []
   (when @stop-server
     (@stop-server))
-  (reset! stop-server (run-server mitte-server {:port (Integer. (or (System/getenv "PORT") 9999))})))
+      (reset! stop-server (run-server mitte-server {:port (Integer. (or (System/getenv "PORT") 9999))}))
+
+      ;; create a new session (persistent v8 context in MarkLogic)
+      (reset! session (.toString (java.util.UUID/randomUUID)))
+      (future (sh "node" "./client/start_evaluator.js" "--session" @session)))
 
 (comment
   ;; to start or restart the server (which must happen after changes to the routes)
