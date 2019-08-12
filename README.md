@@ -1,45 +1,81 @@
 # mitte
 An nREPL adapter for evaluating CLJS in MarkLogic
 
+## Usage 
+
+`mitte.core` provides the high-level API. Evaluate `cljs-repl`
+ to turn an `nrepl` connection into a ClojureScript REPL connected to
+ your local MarkLogic database (this nrepl connection must have [piggieback](https://github.com/nrepl/piggieback)
+ middleware installed.) Evaluate `restart-server` to start an independent 
+ `nrepl` server that already has the appropriate middleware. The `nrepl` 
+ port will be printed to the screen.
+
+Default settings expect a MarkLogic server at port `8000` with a user
+`admin-local`, password `admin`.  
+
+### Logging 
+   
+`console.log` statements are written to disk by MarkLogic to an `ErrorLog`
+file. The default path on my machine was:
+
+```
+/Users/<ME>/Library/Application Support/MarkLogic/Data/Logs/8000_ErrorLog.txt`
+```  
+
 ## Design Notes
 
-We've started with a `client-stub` that pretends to be our future
-captive JS runtime within MarkLogic. It's a very small `node`
-application that performs an `HTTP GET` against
-`http://host:port/request-form`, evaluates the body of whatever
-request it receives, then performs an `HTTP PUT` to
-`http://host:port/return-result`. There's currently no real error
-handling in this code, but it's enough to get started on the Clojure
-side.
+`client/evaluator.js` is a minimal JavaScript client which is deployed
+ to a local MarkLogic server, and establishes a long-polling loop with
+ a local JVM server. It is automatically installed when a REPL session
+ is initiated (deployment is handled by `client/start_evaluator`)
 
-The file `mitte.clj` contains a minimal implementation of the Clojure
-side of our middleware that services the `HTTP` endpoint with which
-the `client-stub` interacts.
-
+`mitte.marklogic-session` implements a small HTTP server. The client 
+ sends a GET request to `http://host:port/repl` and waits for instruction, 
+ from the startup routine or by editor commands. Evaluated results are
+ returned by POST before the loop begins again with a new GET request.
+ 
 In order to get the right behavior in this inverted `GET` design, we
-use a pair of blocking concurrent queues, each implemented with a
-`java.util.concurrent.LinkedBlockingQueue` to handle messaging. The
-handler for the `request-form` endpoint blocks until there's a JS form
-in the `evaluation-queue`, at which point it returns it as the body of
-the response to our client. Likewise, the `return-result` endpoint
-places the body of the incoming request into the `result-queue` to be
-read by our `nREPL` server and returned to the waiting editor process.
+ use a pair of blocking concurrent queues, each implemented with a
+ `java.util.concurrent.LinkedBlockingQueue` to handle messaging. The
+ `/repl` GET handler blocks until there's a JS form in the 
+ `evaluation-queue`, at which point it returns it as the body of
+ the response to our client. Likewise, the `POST` handler places the 
+ body of the incoming request into the `result-queue` to be read by our
+ `nREPL` server and returned to the waiting editor process.
 
+When a session begins it is assigned a unique ID. When the server is
+ restarted, a new session created with a fresh ID which causes requests
+ from old processes to be rejected, stopping stale processes.
+
+`mitte.marklogic-repl` implements a REPL environment for use with 
+ standard `cljs.repl` tooling. 
+
+The v8 environment is prepared in a multi-step process. 
+- load the `evaluator.js` script (no dependencies)
+- compile `cljs.core`, and load key files emitted by Closure
+  (`goog/base`, `goog/deps`, `<output-dir>deps.js`)
+- load `closure_bootstrap.js` to enable resource-loading via our
+  HTTP server
+- now we can use ClojureScript - so we load `cljs.core` and
+  `mitte/marklogic-client`, which implements some final loader
+  behaviour
+  
+    
 ## TODO
 
-It looks to me like we can use `nrepl.server` and `cider.piggieback`
-to handle the editor client side of this project. The main thing seems
-to be implementing a few protocols to create an `IJavaScriptEnv` with
-which to create a `piggieback` handler to pass to `nrepl.server`.
+- Stacktraces
+- Try using various MarkLogic api's from cljs
+- How to compile a project for deployment?
+- Odd error when `(require ...)` appears in a file (low priority,
+  this is not supported syntax in cljs)
+- Capture console.log statements and pass back ?  
 
-Details regarding Piggieback:
+## Quirks
 
-https://github.com/nrepl/piggieback
-
-An example of a wrapped JS runtime:
-
-https://github.com/clojure/clojurescript/blob/master/src/main/clojure/cljs/repl/nashorn.clj
-
-I've pulled in, commented out, and renamed the `NashhornEnv`
-definition in the above file to `MarkLogicEnv`, but haven't started
-coding the functions yet.
+- JSON objects in MarkLogic are wrapped. To reach the object itself, 
+  use `jsonThing.root`.
+- Strings in JSON are also wrapped. Use `jsonThing.root.aString.toString()`
+- in the node.js api, `db.documents.write` writes a JSON doc to the database.
+  in the javascript api, `xdmp.documentGet` does not get a document, it reads 
+  from the filesystem. Use `fn.doc` to read a JSON doc from the database. 
+  
