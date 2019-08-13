@@ -1,14 +1,26 @@
 # mitte
 An nREPL adapter for evaluating CLJS in MarkLogic
 
+## Requirements
+
+- Node.js (tested with v12)
+- Clojure (tested with 1.10.0)
+- MarkLogic Server (tested with 10.0-1) 
+
+## Quickstart
+
+1. Run `clj -m mitte.core` to start an nrepl server process - the nrepl
+port will be printed to the screen.
+2. Connect to that nrepl port and evaluate `(mitte.core/cljs-repl)` to 
+begin the ClojureScript-in-MarkLogic session.
+
 ## Usage 
 
-`mitte.core` provides the high-level API. Evaluate `cljs-repl`
- to turn an `nrepl` connection into a ClojureScript REPL connected to
- your local MarkLogic database (this nrepl connection must have [piggieback](https://github.com/nrepl/piggieback)
- middleware installed.) Evaluate `restart-server` to start an independent 
- `nrepl` server that already has the appropriate middleware. The `nrepl` 
- port will be printed to the screen.
+`mitte.core` provides the high-level API. Evaluate `restart-server` to 
+ start an `nrepl` server; the port will be printed to the screen and written
+ to the `.nrepl-port` file. Evaluate `cljs-repl`to turn an `nrepl` 
+ connection into a ClojureScript REPL connected to your local MarkLogic 
+ database (this nrepl connection must have [piggieback](https://github.com/nrepl/piggieback) middleware installed.) 
 
 Default settings expect a MarkLogic server at port `8000` with a user
 `admin-local`, password `admin`.  
