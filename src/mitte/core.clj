@@ -1,6 +1,7 @@
 (ns mitte.core
   (:require [cider.piggieback :as pback]
             [mitte.repl-env :as ml-repl]
+            [nrepl.cmdline :as ncmd]
             nrepl.server
             cider.nrepl))
 
@@ -16,6 +17,11 @@
      (pback/cljs-repl repl-env
                       :compiler-env
                       (-> repl-env :compiler-options :compiler-env)))))
+
+(defn -main []
+  (ncmd/-main
+    "--handler" "mitte.core/nrepl-handler"
+    "--interactive"))
 (comment
 
   ;; invoke in any nREPL with piggieback middleware installed

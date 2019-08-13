@@ -12,7 +12,6 @@
             [clojure.string :as str]
             [cljs.util :as util]
             [clojure.edn :as edn]
-            [clojure.pprint :as pp]
             [nrepl.cmdline]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

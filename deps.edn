@@ -12,6 +12,4 @@
   cider/cider-nrepl {:mvn/version "0.21.1"}}
  :aliases
  {:mitte
-  {:main-opts ["-m" "nrepl.cmdline"
-               "--handler" "mitte.core/nrepl-handler"
-               "--interactive"]}}}
+  {:main-opts ["-m" "mitte.core"]}}}
