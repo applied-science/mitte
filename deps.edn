@@ -9,5 +9,4 @@
   nrepl/nrepl {:mvn/version "0.6.0"}
   cider/piggieback {:mvn/version "0.4.1"}}
  :aliases
- {:mitte {:main-opts
-          ["-m" "nrepl.cmdline" "--middleware" "[cider.piggieback/wrap-cljs-repl]"]}}}
+ {:mitte {:main-opts ["-m" "mitte.core"]}}}

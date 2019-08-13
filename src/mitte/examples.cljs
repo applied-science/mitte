@@ -1,6 +1,7 @@
 (ns mitte.examples
   (:require [clojure.string :as str]
-            [clojure.set :as set]))
+            [clojure.set :as set]
+            [goog.object :as gobj]))
 
 (comment
 
@@ -13,6 +14,7 @@
   (this-as this
     (set (js/Object.keys this)))
 
+  ;; print to console (nothing special implemented here)
   (prn :examples)
 
   )

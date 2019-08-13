@@ -11,10 +11,10 @@
 
 (defn restart-nrepl
   "Start or restart an nrepl server with piggieback middleware"
-  []
+  [& [{:keys [port]}]]
   (stop-nrepl)
 
-  (let [nrepl-port (Integer. (or (System/getenv "NREPL_PORT") 9990))]
+  (let [nrepl-port (Integer. (or port (System/getenv "NREPL_PORT") 9990))]
     (println (str "nrepl started on port " nrepl-port))
     (reset! nrepl-server* (nrepl/start-server
                             :port nrepl-port
@@ -29,6 +29,9 @@
      (pback/cljs-repl repl-env
                       :compiler-env
                       (-> repl-env :compiler-options :compiler-env)))))
+
+(defn -main [& [port]]
+  (restart-nrepl {:port port}))
 
 (comment
 
