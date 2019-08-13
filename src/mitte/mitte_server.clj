@@ -1,15 +1,19 @@
-(ns mitte.marklogic-session
+(ns mitte.mitte-server
   (:refer-clojure :exclude [load-file])
   (:require [clojure.java.io :as io]
             [clojure.data.json :as json]
             [compojure.core :refer :all]
+            [ring.middleware.params :refer [wrap-params]]
             [org.httpkit.server :as httpkit]
             [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
             [cljs.closure :as closure]
             [cljs.env :as env]
             [clojure.string :as str]
-            [cljs.util :as util]))
+            [cljs.util :as util]
+            [clojure.edn :as edn]
+            [clojure.pprint :as pp]
+            [nrepl.cmdline]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Settings, override by passing options to `mitte.core/cljs-repl`
@@ -19,8 +23,8 @@
    (str/join [".repl-ml-cljs-" (util/clojurescript-version)])})
 
 (defn server-defaults []
-  {:repl-host "localhost"
-   :repl-port (Integer. (or (System/getenv "POLL_PORT") 9999))
+  {:mitte-host "localhost"
+   :mitte-port (Integer. (or (System/getenv "POLL_PORT") 9999))
    :host "localhost"
    :port 8000
    :database "Documents"
@@ -60,12 +64,7 @@
    Returns map containing :type, :status, and :value."
   [js]
   (.put evaluation-queue {:action :eval :code js})
-  (let [result (.take result-queue)]
-    (-> (json/read-str result :key-fn keyword)
-        (update :status keyword)
-        ;; :value is not sent from client until ClojureScript
-        ;; has been loaded
-        (cond-> (:value result) (update :value read-string)))))
+  (.take result-queue))
 
 (defn get-resource
   "Returns string for resource in classpath or :output-dir"
@@ -80,6 +79,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; The HTTP server we use to communicate with MarkLogic's internal context
 
+(defn format-result [req]
+  (let [res-str (slurp (clojure.java.io/reader (:body req) :encoding "UTF-8"))
+        content-type (first (str/split ((:headers req) "content-type") #";"))]
+    (case content-type
+      "application/json"
+      (-> (json/read-str res-str :key-fn keyword)
+          (update :status keyword))
+      "application/edn"
+      (edn/read-string
+        ;; returns nil for all unknown reader tags
+        {:default (constantly nil)} res-str))))             ; from which our nREPL server must read))
+
 (defroutes mitte-server
 
   (GET "/repl" req
@@ -89,21 +100,24 @@
         {:status 200
          :headers {"Content-Type" "application/json"}
          :body (json/write-str (.take evaluation-queue))}   ; next item in the queue, blocks if queue empty!
-        {:status 500 :body "Invalid session"})
+        {:status 403 :body "Invalid session"})
 
       ;; on server restart, ignore interrupted request errors
       (catch java.lang.InterruptedException error
-        {:status 500 :body "Server restarted"})))
+        {:status 403 :body "Server restarted"})))
 
   (PUT "/repl" req
     ;; client is returning a result
-    (let [res-str (slurp (clojure.java.io/reader (:body req) :encoding "UTF-8"))]
-      (.put result-queue res-str)                           ; from which our nREPL server must read
+    (let [{:as result
+           :keys [status value]} (format-result req)]
+      (case status
+        :print (apply println (map edn/read-string value))
+        (.put result-queue result))                         ; from which our nREPL server must read
       ""))
 
-  (POST "/resource" req
+  (GET ["/resource/:path" :path #".+"] req
     ;; client is requesting a file
-    (let [path (slurp (clojure.java.io/reader (:body req) :encoding "UTF-8"))]
+    (let [path (-> req :params :path)]
       {:status 200
        :body (get-resource (:repl-options req) path)})))
 
@@ -155,28 +169,46 @@
   (eval-resource opts (str (:output-dir compiler-options) "_deps.js"))
 
   ;; minimal closure loading utils
-  (eval-resource opts "mitte/closure_bootstrap.js"))
+  (eval-resource opts "closure_bootstrap.js"))
+
+(defn start-client [{:keys [session-id
+                                 mitte-host mitte-port
+                                 port host database user password]}]
+  (let [{:as result :keys [exit err out]}
+        (sh "node" "./scripts/start_evaluator.js"
+            ;; REPL config
+            "--session_id" session-id
+            "--mitte_port" (str mitte-port)
+            "--mitte_host" mitte-host
+
+            ;; MarkLogic config
+            "--host" host
+            "--port" (str port)
+            "--database" database
+            "--user" user
+            "--password" password)]
+    (println out)
+    (when-not (zero? exit)
+      (println err)
+      (throw (Exception. "Evaluator installation failed")))))
+
+(defn start-server [{:as options
+                     :keys [mitte-port]}]
+  (stop-server)
+  (reset! stop-server* (httpkit/run-server
+                         (comp (wrap-params #'mitte-server)
+                               (partial merge {:repl-options options}))
+                         {:port mitte-port})))
+
+(comment
+  (start-server (with-defaults {:session-id "1"}))
+  (start-client (with-defaults {:session-id "1"})))
 
 (defn start-session
   [& [repl-options]]
-  (let [{:as repl-options
-         :keys [session-id
-                repl-host repl-port
-                port host database user password]} (with-defaults repl-options)]
-    (stop-server)
-    (reset! stop-server* (httpkit/run-server (comp mitte-server (partial merge {:repl-options repl-options}))
-                                             {:port repl-port}))
-    (future (sh "node" "./client/start_evaluator.js"
-                ;; REPL config
-                "--session_id" session-id
-                "--repl_port" (str repl-port)
-                "--repl_host" repl-host
+  (let [options (with-defaults repl-options)]
+    (start-server options)
+    (start-client options)
+    (init-session options)))
 
-                ;; MarkLogic config
-                "--host" host
-                "--port" (str port)
-                "--database" database
-                "--user" user
-                "--password" password))
-    (init-session repl-options)))
 

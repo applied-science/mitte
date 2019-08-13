@@ -1,9 +1,0 @@
-{
-  "name": "stubby",
-  "version": "0.0.1",
-  "private": true,
-  "dependencies": {
-    "minimist": "1.2.0",
-    "got": "9.6.0"
-  }
-}

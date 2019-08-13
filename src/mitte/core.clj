@@ -1,46 +1,24 @@
 (ns mitte.core
   (:require [cider.piggieback :as pback]
-            [mitte.marklogic-repl :as ml-repl]
-            [nrepl.server :as nrepl]))
+            [mitte.repl-env :as ml-repl]
+            nrepl.server
+            cider.nrepl))
 
-(defonce ^:private nrepl-server* (atom nil))
-
-(defn stop-nrepl []
-  (when @nrepl-server*
-    (nrepl/stop-server @nrepl-server*)))
-
-(defn restart-nrepl
-  "Start or restart an nrepl server with piggieback middleware"
-  [& [{:keys [port]}]]
-  (stop-nrepl)
-
-  (let [nrepl-port (Integer. (or port (System/getenv "NREPL_PORT") 9990))]
-    (println (str "nrepl started on port " nrepl-port))
-    (reset! nrepl-server* (nrepl/start-server
-                            :port nrepl-port
-                            :handler (nrepl/default-handler #'pback/wrap-cljs-repl)))
-    (spit "./.nrepl-port" (str nrepl-port))))
+(def nrepl-handler (apply nrepl.server/default-handler
+                          (conj (mapv resolve cider.nrepl/cider-middleware)
+                                #'cider.piggieback/wrap-cljs-repl)))
 
 (defn cljs-repl
   "Turn an existing REPL into a CLJS repl connected to MarkLogic"
   ([] (cljs-repl {}))
   ([options]
-   (let [repl-env (ml-repl/repl-env options)]
+   (let [repl-env (ml-repl/make-env options)]
      (pback/cljs-repl repl-env
                       :compiler-env
                       (-> repl-env :compiler-options :compiler-env)))))
-
-(defn -main [& [port]]
-  (restart-nrepl {:port port}))
-
 (comment
 
-  ;; starts a new nrepl server.
-  ;; you may not need to use this if you already
-  ;; have an nrepl connection with piggieback middleware
-  (restart-nrepl)
-
-  ;; turns an existing nrepl into a cljs repl
+  ;; invoke in any nREPL with piggieback middleware installed
   (cljs-repl {:user "admin-local"
               :password "admin"
               :port 8000

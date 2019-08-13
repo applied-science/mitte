@@ -9,44 +9,42 @@ An nREPL adapter for evaluating CLJS in MarkLogic
 
 ## Quickstart
 
-1. Run `clj -m mitte.core` to start an nrepl server process - the nrepl
-port will be printed to the screen.
-2. Connect to that nrepl port and evaluate `(mitte.core/cljs-repl)` to 
-begin the ClojureScript-in-MarkLogic session.
-
-## Usage 
-
-`mitte.core` provides the high-level API. Evaluate `restart-server` to 
- start an `nrepl` server; the port will be printed to the screen and written
- to the `.nrepl-port` file. Evaluate `cljs-repl`to turn an `nrepl` 
- connection into a ClojureScript REPL connected to your local MarkLogic 
- database (this nrepl connection must have [piggieback](https://github.com/nrepl/piggieback) middleware installed.) 
-
-Default settings expect a MarkLogic server at port `8000` with a user
-`admin-local`, password `admin`.  
+1. Ensure node.js is installed (v12 is recommended, [nvm](https://github.com/nvm-sh/nvm) is handy for managing
+versions) and run `yarn install`. You may safely ignore node-gyp install errors. 
+1. Run `clj -m mitte.core` to start the nREPL server. A functional REPL will appear 
+in the terminal but you will more likely want to connect with an editor (emacs/Cursive) 
+using the nrepl port, which is printed and also written to the `.nrepl-port` file.
+1. Ensure that you have a local MarkLogic database running on port 8000 with an 
+`admin-local:admin` user (or pass your own `:username` and `:password` in an options map
+in the next step). 
+1. Evaluate `(mitte.core/cljs-repl)` to begin a MarkLogic javascript session and connect
+the current REPL to it. You can now eval!
 
 ### Logging 
-   
+
+Clojure print statements are forwarded to your original REPL window.
+
 `console.log` statements are written to disk by MarkLogic to an `ErrorLog`
-file. The default path on my machine was:
+file. The default path on my machine was: 
 
 ```
-/Users/<ME>/Library/Application Support/MarkLogic/Data/Logs/8000_ErrorLog.txt`
-```  
+/Users/<ME>/Library/Application Support/MarkLogic/Data/Logs/8000_ErrorLog.txt
+```
 
 ## Design Notes
 
-`client/evaluator.js` is a minimal JavaScript client which is deployed
- to a local MarkLogic server, and establishes a long-polling loop with
- a local JVM server. It is automatically installed when a REPL session
- is initiated (deployment is handled by `client/start_evaluator`)
+`src/cljs_evaluator.js` is a minimal JavaScript client which is deployed
+ to a local MarkLogic instance, and establishes a long-polling loop with
+ a local JVM server dubbed "Mitte", which is run alongside the nREPL server. 
+ It is automatically installed and invoked on each call to 
+ `mitte.core/cljs-repl` (deployment is implemented in `scripts/start_evaluator.js`)
 
-`mitte.marklogic-session` implements a small HTTP server. The client 
- sends a GET request to `http://host:port/repl` and waits for instruction, 
- from the startup routine or by editor commands. Evaluated results are
- returned by POST before the loop begins again with a new GET request.
+`mitte.mitte-server` implements the HTTP server handling the REPL loop.  
+ Clients send GET requests to `http://host:port/repl` and await instruction, 
+ then respond via POST before the next GET. Unusually for JavaScript,
+ the MarkLogic v8 context is fully synchronous.
  
-In order to get the right behavior in this inverted `GET` design, we
+To get the right behavior in this inverted `GET` design on the JVM side, we
  use a pair of blocking concurrent queues, each implemented with a
  `java.util.concurrent.LinkedBlockingQueue` to handle messaging. The
  `/repl` GET handler blocks until there's a JS form in the 
@@ -56,19 +54,18 @@ In order to get the right behavior in this inverted `GET` design, we
  `nREPL` server and returned to the waiting editor process.
 
 When a session begins it is assigned a unique ID. When the server is
- restarted, a new session created with a fresh ID which causes requests
- from old processes to be rejected, stopping stale processes.
+ restarted, requests referring to old sessions will be rejected. 
 
-`mitte.marklogic-repl` implements a REPL environment for use with 
- standard `cljs.repl` tooling. 
+`mitte.repl-env` implements a REPL environment implementing the necessary 
+ protocols to work with standard `cljs.repl` tooling. 
 
 The v8 environment is prepared in a multi-step process. 
-- load the `evaluator.js` script (no dependencies)
-- compile `cljs.core`, and load key files emitted by Closure
-  (`goog/base`, `goog/deps`, `<output-dir>deps.js`)
-- load `closure_bootstrap.js` to enable resource-loading via our
-  HTTP server
-- now we can use ClojureScript - so we load `cljs.core` and
+- load `cljs_evaluator.js` script (no dependencies)
+- compile `cljs.core`, then load a few of the emitted files:
+  `goog/base`, `goog/deps`, and `<output-dir>deps.js`
+- load `closure_bootstrap.js` to enable the Closure Library
+  to load additional files on its own
+- now we are ready for ClojureScript - load `cljs.core` and
   `mitte/marklogic-client`, which implements some final loader
   behaviour
   
@@ -80,7 +77,6 @@ The v8 environment is prepared in a multi-step process.
 - How to compile a project for deployment?
 - Odd error when `(require ...)` appears in a file (low priority,
   this is not supported syntax in cljs)
-- Capture console.log statements and pass back ?  
 
 ## Quirks
 

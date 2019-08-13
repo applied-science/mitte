@@ -5,6 +5,13 @@
   http-kit {:mvn/version "2.3.0"}
   compojure {:mvn/version "1.6.1"}
   org.clojure/data.json {:mvn/version "0.2.6"}
+
   ;; these must be updated over time
   nrepl/nrepl {:mvn/version "0.6.0"}
-  cider/piggieback {:mvn/version "0.4.1"}}}
+  cider/piggieback {:mvn/version "0.4.1"}
+  cider/cider-nrepl {:mvn/version "0.21.1"}}
+ :aliases
+ {:mitte
+  {:main-opts ["-m" "nrepl.cmdline"
+               "--handler" "mitte.core/nrepl-handler"
+               "--interactive"]}}}

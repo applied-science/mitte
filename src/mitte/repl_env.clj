@@ -1,6 +1,6 @@
-(ns mitte.marklogic-repl
+(ns mitte.repl-env
   (:require [cljs.repl :as repl]
-            [mitte.marklogic-session :as session :refer [eval-str eval-resource]]
+            [mitte.mitte-server :as session :refer [eval-str eval-resource]]
             [cljs.compiler :as comp]
             [cljs.stacktrace :as st]
             [clojure.string :as string]))
@@ -23,7 +23,7 @@
       ;; load cljs.core & client lib
       (repl/evaluate-form this env repl-filename
                           '(ns cljs.user
-                             (:require mitte.marklogic-client)))))
+                             (:require mitte.repl-client)))))
   (-evaluate [this filename line js]
     (eval-str js))
   (-load [this ns url]
@@ -45,5 +45,5 @@
                (fn [st]
                  (string/join "\n" (drop 1 (string/split st #"\n")))))))
 
-(defn repl-env [& [options]]
+(defn make-env [& [options]]
   (MarkLogicEnv. (session/with-defaults options)))

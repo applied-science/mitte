@@ -2,13 +2,13 @@
 // /Users/XYZ/Library/Application Support/MarkLogic/Data/Logs/8000_ErrorLog.txt
 
 // networking utils
-const {httpGet, httpPut, httpPost} = xdmp
+const {httpGet, httpPut} = xdmp
 
 // options are passed in via the nodejs api command that runs this script
-const {session_id, repl_host, repl_port} = options
+const {session_id, mitte_host, mitte_port} = options
 
 // our local repl web service
-const service_address = (path) => 'http://' + repl_host + ":" + repl_port + path
+const service_address = (path) => 'http://' + mitte_host + ":" + mitte_port + path
 const repl_address = service_address("/repl")
 const resource_address = service_address("/resource")
 
@@ -18,10 +18,10 @@ const repl_options = {
 }
 
 const resource = (path) => {
-    const [headers, body] = httpPost(resource_address, {data: path})
+    const url = resource_address + '/' + path
+    const [headers, body] = httpGet(url, {timeout: 1})
     if (headers.code !== 200) {
-        console.log(body)
-        throw `could not require ${path}`
+        throw Error(`${headers.code}: ${headers.message}, could not require ${path}.`)
     }
     return body.toString()
 }
@@ -37,23 +37,22 @@ const eval_js = (_js_src_) => {
         return eval(_js_src_)
     }
 }
+// will be overwritten by mitte.marklogic-repl implementation
+var format_result = (result) => JSON.stringify(result)
 
-var format_result = (result) => {
-    // will be overwritten by mitte.marklogic-repl,
-    // to also return the formatted result
-    return {status: result.status}
-}
-
-function put(data) {
-    let [put_headers, put_resp] = httpPut(repl_address, {data: JSON.stringify(format_result(data)), ...repl_options})
+function put_result(data) {
+    let [put_headers, put_resp] = httpPut(repl_address, {
+        data: format_result(data), ...repl_options,
+        headers: {'Content-Type': this.mitte ? 'application/edn' : 'application/json'}
+    })
     console.log(put_headers.code === 200 ? 'PUT successful' : ['PUT failed', put_headers])
 }
 
-function evaluate() {
-
-    let [req_headers, req_body] = httpGet(repl_address, repl_options),
-        payload = req_body.root,
-        action = payload.action.toString()
+function invoke() {
+    console.log(`invoke...`)
+    const [req_headers, req_body] = httpGet(repl_address, repl_options)
+    let payload = req_body.root
+    let action = payload.action.toString()
 
     if (req_headers.code !== 200) {
         console.log('repl:GET error', action, code)
@@ -65,20 +64,22 @@ function evaluate() {
             try {
                 const code = payload.code.toString(),
                     result = eval_js(code)
-                put({
+                put_result({
                     status: "success",
                     value: result
                 })
 
             } catch (error) {
-                put({
+                console.log('log', error.stack)
+                console.log(error.toString())
+                put_result({
                     status: "exception",
-                    value: error.toString()
+                    value: error.stack.toString()
                 })
             }
             break
         case 'quit':
-            put({
+            put_result({
                 type: "success",
                 value: ":cljs/quit"
             })
@@ -86,8 +87,8 @@ function evaluate() {
         default:
             console.log(`unknown action ${payload.action}`)
     }
-    evaluate()
+    invoke()
 
 }
 
-evaluate()
+invoke()
