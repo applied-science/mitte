@@ -44,6 +44,3 @@
     (update-in err [:stacktrace]
                (fn [st]
                  (string/join "\n" (drop 1 (string/split st #"\n")))))))
-
-(defn make-env [& [options]]
-  (MarkLogicEnv. (session/with-defaults options)))
