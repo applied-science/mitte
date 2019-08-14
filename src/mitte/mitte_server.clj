@@ -178,6 +178,7 @@
                             mitte-host mitte-port
                             port host database user password]}]
   (let [script-path (.getPath (io/resource "js/start_evaluator.js"))
+        modules-path (.getPath (io/file "node_modules"))
         {:as result :keys [exit err out]}
         (sh "node" script-path
             ;; REPL config
@@ -190,7 +191,8 @@
             "--port" (str port)
             "--database" database
             "--user" user
-            "--password" password)]
+            "--password" password
+            :env {"NODE_PATH" modules-path})]
     (println out)
     (when-not (zero? exit)
       (println err)
