@@ -211,12 +211,16 @@
   (start-client (with-defaults {:session-id "1"})))
 
 
-(let [root-out *out*] ;; capture root binding for logging during install
-  (defn install-node-deps [options]
+(let [root-out *out*]                                       ;; capture root binding for logging during install
+  (defn install-node-deps [{:keys [compiler-options]}]
     (binding [*err* root-out]
-      (closure/maybe-install-node-deps!
-        (assoc (:compiler-options options)
-          :verbose true)))))
+      (let [installed? (->> (keys (:npm-deps compiler-options))
+                            (map #(.exists (io/file "node_modules" (name %))))
+                            (every? true?))]
+        (when-not installed?
+          (closure/maybe-install-node-deps!
+            (assoc compiler-options
+              :verbose true)))))))
 
 (defn start-session
   [& [options]]
