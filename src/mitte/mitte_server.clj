@@ -19,7 +19,10 @@
 
 (defn compiler-defaults []
   {:output-dir
-   (str/join [".repl-ml-cljs-" (util/clojurescript-version)])})
+   (str/join [".repl-ml-cljs-" (util/clojurescript-version)])
+   :npm-deps {:marklogic "^2.3.0"
+              :minimist "^1.2.0"}
+   :install-deps true})
 
 (defn server-defaults []
   {:mitte-host "localhost"
@@ -36,7 +39,8 @@
   (-> (merge (server-defaults)
              {:session-id (.toString (java.util.UUID/randomUUID))}
              options)
-      (update :compiler-options #(merge (compiler-defaults) %))))
+      (update :compiler-options #(-> (compiler-defaults)
+                                     (merge %)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Evaluation
@@ -168,13 +172,15 @@
   (eval-resource opts (str (:output-dir compiler-options) "_deps.js"))
 
   ;; minimal closure loading utils
-  (eval-resource opts "closure_bootstrap.js"))
+  (eval-resource opts "js/closure_bootstrap.js"))
 
 (defn start-client [{:keys [session-id
-                                 mitte-host mitte-port
-                                 port host database user password]}]
-  (let [{:as result :keys [exit err out]}
-        (sh "node" "./scripts/start_evaluator.js"
+                            mitte-host mitte-port
+                            port host database user password]}]
+  (let [script-path (.getPath (io/resource "js/start_evaluator.js"))
+        modules-path (.getPath (io/file "node_modules"))
+        {:as result :keys [exit err out]}
+        (sh "node" script-path
             ;; REPL config
             "--session_id" session-id
             "--mitte_port" (str mitte-port)
@@ -185,7 +191,8 @@
             "--port" (str port)
             "--database" database
             "--user" user
-            "--password" password)]
+            "--password" password
+            :env {"NODE_PATH" modules-path})]
     (println out)
     (when-not (zero? exit)
       (println err)
@@ -203,11 +210,23 @@
   (start-server (with-defaults {:session-id "1"}))
   (start-client (with-defaults {:session-id "1"})))
 
+
+(let [root-out *out*]                                       ;; capture root binding for logging during install
+  (defn install-node-deps [{:keys [compiler-options]}]
+    (binding [*err* root-out]
+      (let [installed? (->> (keys (:npm-deps compiler-options))
+                            (map #(.exists (io/file "node_modules" (name %))))
+                            (every? true?))]
+        (when-not installed?
+          (closure/maybe-install-node-deps!
+            (assoc compiler-options
+              :verbose true)))))))
+
 (defn start-session
-  [& [repl-options]]
-  (let [options (with-defaults repl-options)]
-    (start-server options)
-    (start-client options)
-    (init-session options)))
+  [& [options]]
+  (install-node-deps options)
+  (start-server options)
+  (start-client options)
+  (init-session options))
 
 

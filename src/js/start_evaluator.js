@@ -24,7 +24,7 @@ const install = () => {
     return db.config.extlibs.write({
         path: '/ext/invoke/cljs_evaluator.sjs',
         contentType: 'application/vnd.marklogic-javascript',
-        source: fs.createReadStream(path.join(__dirname, '../src', 'cljs_evaluator.js'))
+        source: fs.createReadStream(path.join(__dirname, 'cljs_evaluator.js'))
     }).result()
 }
 

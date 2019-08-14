@@ -10,7 +10,7 @@ An nREPL adapter for evaluating CLJS in MarkLogic
 ## Quickstart
 
 1. Ensure node.js is installed (v12 is recommended, [nvm](https://github.com/nvm-sh/nvm) is handy for managing
-versions) and run `yarn install`. You may safely ignore node-gyp install errors. 
+versions).
 1. Run `clj -m mitte.core` to start the nREPL server. A functional REPL will appear 
 in the terminal but you will more likely want to connect with an editor (emacs/Cursive) 
 using the nrepl port, which is printed and also written to the `.nrepl-port` file.
@@ -33,11 +33,11 @@ file. The default path on my machine was:
 
 ## Design Notes
 
-`src/cljs_evaluator.js` is a minimal JavaScript client which is deployed
+`js/cljs_evaluator.js` is a minimal JavaScript client which is deployed
  to a local MarkLogic instance, and establishes a long-polling loop with
  a local JVM server dubbed "Mitte", which is run alongside the nREPL server. 
  It is automatically installed and invoked on each call to 
- `mitte.core/cljs-repl` (deployment is implemented in `scripts/start_evaluator.js`)
+ `mitte.core/cljs-repl` (deployment is implemented in `js/start_evaluator.js`)
 
 `mitte.mitte-server` implements the HTTP server handling the REPL loop.  
  Clients send GET requests to `http://host:port/repl` and await instruction, 

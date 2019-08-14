@@ -17,3 +17,5 @@ pom.xml.asc
 node_modules
 .repl*
 .nrepl-port
+package-lock.json
+package.json

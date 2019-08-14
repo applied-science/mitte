@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "marklogic": "^2.3.0",
-    "minimist": "^1.2.0"
-  }
-}
