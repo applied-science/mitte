@@ -15,7 +15,7 @@ versions) and run `yarn install`. You may safely ignore node-gyp install errors.
 in the terminal but you will more likely want to connect with an editor (emacs/Cursive) 
 using the nrepl port, which is printed and also written to the `.nrepl-port` file.
 1. Ensure that you have a local MarkLogic database running on port 8000 with an 
-`admin-local:admin` user (or pass your own `:username` and `:password` in an options map
+`admin-local:admin` user (or pass your own `:user` and `:password` in an options map
 in the next step). 
 1. Evaluate `(mitte.core/cljs-repl)` to begin a MarkLogic javascript session and connect
 the current REPL to it. You can now eval!
