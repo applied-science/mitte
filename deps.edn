@@ -9,4 +9,5 @@
   ;; these must be updated over time
   nrepl/nrepl {:mvn/version "0.6.0"}
   cider/piggieback {:mvn/version "0.4.1"}
-  cider/cider-nrepl {:mvn/version "0.21.1"}}}
+  cider/cider-nrepl {:mvn/version "0.21.1"}
+  funcool/tubax {:mvn/version "0.2.0"}}}

@@ -19,4 +19,8 @@
   (throw (js/Error. "Whatever"))
 
   (prn "HELLO" {:10 10 :20 20})
-  )
+
+  ;; fails
+  ;; 1. :foreign-libs aren't being processed
+  ;; 2. even when processed, there are issues with the "sax" dep
+  (require '[tubax.core]))

@@ -22,7 +22,8 @@
           (when (or (not (contains? *loaded-libs* name)) reload)
             (set! *loaded-libs* (conj (or *loaded-libs* #{}) name))
             (js/CLOSURE_IMPORT_SCRIPT
-              (gobj/get (.. js/goog -dependencies_ -nameToPath) name))))))
+              (or (gobj/get (.. js/goog -dependencies_ -nameToPath) name)
+                  (throw (js/Error. (str "No path for dep: " name)))))))))
 
 (defn- repl-print [& args]
   (apply js/console.log (mapv str (to-array args)))
